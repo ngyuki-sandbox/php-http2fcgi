@@ -1,0 +1,40 @@
+version: "3.7"
+
+services:
+  php:
+    image: php:fpm-alpine
+    volumes:
+      - ./:/app/
+      - run:/var/run/php/
+    working_dir: /app/
+    environment:
+      PHP_FPM_CONFIG: |
+        [www]
+        user = root
+        group = root
+        listen = /var/run/php/php-fpm.sock
+    command:
+      - sh
+      - -c
+      - |
+          echo "$$PHP_FPM_CONFIG" > /usr/local/etc/php-fpm.d/zzz.conf
+          exec php-fpm --nodaemonize --allow-to-run-as-root
+
+  http2fcgi:
+    image: alash3al/http2fcgi
+    volumes:
+      - ./:/app/
+      - run:/var/run/php/
+    working_dir: /app/
+    ports:
+      - 6065:6065
+    entrypoint: []
+    command:
+      - sh
+      - -c
+      - |
+          while ! [ -e /var/run/php/php-fpm.sock ]; do sleep 1; done
+          exec http2fcgi -fcgi=unix:///var/run/php/php-fpm.sock -http :6065 -root /app/
+
+volumes:
+  run:
